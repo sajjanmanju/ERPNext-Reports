@@ -1,0 +1,283 @@
+{%- macro add_header(page_num, max_pages, doc, letter_head, no_letterhead) -%}
+    {% if letter_head and not no_letterhead %}
+    <div class="letter-head">{{ letter_head }}</div>
+    {% endif %}
+    {%- if doc.meta.is_submittable and doc.docstatus==0-%}
+    <div  class="text-center">
+    <h4 style="margin: 0px;">{{ _("DRAFT") }}</h4></div> 
+    {%- endif -%} 
+    {%- if doc.meta.is_submittable and doc.docstatus==2-%}
+    <div class="alert alert-danger text-center">
+        <h4 style="margin: 0px;">{{ _("CANCELLED") }}</h4></div>
+    {%- endif -%}
+    {% if max_pages > 1 %}
+    <p class="text-right">{{ _("Page #{0} of {1}").format(page_num, max_pages) }}</p>
+    {% endif %}
+{%- endmacro -%}
+
+<small>
+{{ add_header(0,1,doc,letter_head, no_letterhead) }}
+<big>
+<h2><p class="text-left">{{ _(doc.select_print_heading or "Quotation") }}</p></h2>
+</big>
+<p class="text-left" style="font-size: 12px;">{{ doc.name }}</p><br>
+<table BORDER class="boldtable "style="width: 100%;">
+
+<tr>
+    <td style="width: 50%;font-size: 12px;"><b>Customer Name : </b>{{doc.customer_name}}</td>
+    <td style="width: 50%; font-size: 12px;"><b>Date :</b> {{frappe.utils.formatdate(doc.transaction_date,"dd-MM-yyyy")}}</td>
+</tr>
+
+<tr>
+     <td style="width: 50%; font-size: 12px;"><b>Customer Address : </b> {{ doc.address_display}}</td>
+    <td style="width: 50%; font-size: 12px;"><b>Kind Attention : </b>{{ doc.contact_display }} </td>
+</tr>
+<!--<tr>
+     <td style="width: 50%;"><b>SO No : </b> {{ doc.customer_sales_order }}</td>
+    <td style="width: 50%;"><b> SO Date : </b>{{frappe.utils.formatdate(doc.customer_sales_order_date,"dd-MM-yyyy")}} </td>
+</tr>
+
+<tr>
+    <td style="width: 50%;"><b>Place of Supply :</b> {{doc.place_of_supply or ""}}</td>
+    <td style="width: 50%;"><b>Payment Terms: </b>{{doc.payment_terms_template or "" }}</td>
+</tr>
+<tr>
+    <td style="width: 50%;"><b> Customer Name : </b> {{doc.customer_name}} </br> <b>Billing Address :</b>{{doc.address_display}}</br> <b> End User: </b> {{doc.end_user_name
+ or "" }}</br><b> Customer GSTIN: </b> {{doc.customer_gstin or "URD" }} </td> 
+    <td style="width: 50%;"><b> Customer Name : </b> {{doc.customer_name}} </br><b>Shipping Address : </b>{{doc.shipping_address or ""}}</td>
+</tr>-->
+</table>
+<br>
+</br>
+</br>
+<table BORDER class="boldtable "style="width: 100%;">
+	<tbody>
+                 
+			<tr>
+                        <th><font size = "2">Sr</font></th>
+                <th><font size = "2">Item Name</font></th>
+			<th><font size = "2">Description</font></th>
+			<th><font size = "2">HSN</font></th>
+			<th class="text-right"><font size = "2">Quantity</font></th>
+			<th class="text-right"><font size = "2">Rate</font></th>
+			<th class="text-right"><font size = "2">Amount</font></th>
+                      </font>
+		</tr>
+
+		{% set cgst_rate = [] -%}
+		 {% set sgst_rate = [] -%}
+		 {% set igst_rate = [] -%}
+		{% set cgst_account_head = [] -%}
+		 {% set sgst_account_head = [] -%}
+		 {% set igst_account_head = [] -%}
+		{% set tot_cgst_amount = [] %}
+		{% set tot_sgst_amount = [] %}
+		{% set grand_total = {"qty":0.0, "amount":0.0, "cgst_amt":0.0, "sgst_amt":0.0, "igst_amt":0.0} %}
+
+		{%- for row in doc.taxes -%}
+	  	   {% if 'CGST' in row.account_head -%}
+			{% set _ = cgst_account_head.append(row.account_head) %}
+			{% set _ = cgst_rate.append(row.rate) %}
+			
+		   {%- endif -%}
+		   {% if 'SGST' in row.account_head -%}
+			 {% set _ = sgst_account_head.append(row.account_head) %}
+			{% set _ = sgst_rate.append(row.rate) %}
+			
+		   {%- endif -%}
+		   {% if 'IGST' in row.account_head -%}
+
+			{% set _ = igst_account_head.append(row.account_head) %}
+			{% set _ = igst_rate.append(row.rate) %}
+			
+		   {%- endif -%}
+		{%- endfor -%}
+
+	{%- for row in doc.items -%}
+		<tr>
+		        {% set cgst_amt = [] -%}
+		 	 {% set sgst_amt = [] -%}
+			 {% set igst_amt = [] -%}
+			 {% set it_cgst_rate = [] -%}
+		 	 {% set it_sgst_rate = [] -%}
+			 {% set it_igst_rate = [] -%}
+			 {% set rate_found_item = 0 -%}
+
+								
+		      {%- set item_record = frappe.get_doc("Item", row.item_code) -%}
+			{% for item_tax in item_record.taxes %}
+
+  			  {% if item_tax.tax_type == igst_account_head[0] %}
+				
+				{% set _ = it_igst_rate.append(item_tax.tax_rate) %}
+				{% set _ = igst_amt.append(row.amount * it_igst_rate[0] / 100) -%}
+				{% set rate_found_item = 1 -%}
+			{% endif %}		
+			{% if item_tax.tax_type == sgst_account_head[0] %}
+				
+				{% set _ = it_sgst_rate.append(item_tax.tax_rate) %}
+				{% set _ = sgst_amt.append(row.amount * it_sgst_rate[0] / 100) -%}
+				{% set rate_found_item = 1 -%}
+			{% endif %}	
+			{% if item_tax.tax_type == cgst_account_head[0] %}
+				{% set _ = it_cgst_rate.append(item_tax.tax_rate) %}
+				{% set _ = cgst_amt.append(row.amount * it_cgst_rate[0] / 100) -%}
+				{% set rate_found_item = 1 -%}
+			{% endif %}		
+
+
+		{% endfor %}	
+	  	{% if rate_found_item == 0 %}
+
+			{% if cgst_rate[0] -%}
+			   {% set _ = cgst_amt.append((row.amount * cgst_rate[0])/100) -%}
+			   {% set _= it_cgst_rate.append(cgst_rate[0]) -%}
+			   {% set rate_found_inv = 1 -%}
+		       	{%- endif -%}
+			{% if sgst_rate[0] -%}
+			   {% set _ = sgst_amt.append((row.amount * sgst_rate[0])/100) -%}
+			   {% set _= it_sgst_rate.append(sgst_rate[0]) -%}
+			   
+		       	{%- endif -%}
+			{% if igst_rate[0] -%}
+			   {% set _ = igst_amt.append((row.amount * igst_rate[0])/100) -%}
+			   {% set _= it_igst_rate.append(igst_rate[0]) -%}
+			   {% set rate_found_inv = 1 -%}
+		       	{%- endif -%}
+		{% endif %}
+	
+	
+		{% if not it_cgst_rate[0] %}
+			{% set _ = it_cgst_rate.append(0) %}
+			{% set _ = cgst_amt.append(0) %}
+		{% endif %}
+		{% if not it_sgst_rate[0] %}
+			{% set _ = it_sgst_rate.append(0) %}
+			{% set _ = sgst_amt.append(0) %}
+		{% endif %}
+		{% if not it_igst_rate[0] %}
+			{% set _ = it_igst_rate.append(0) %}
+			{% set _ = igst_amt.append(0) %}
+		{% endif %}
+
+		{% set temp_cgst_amt = grand_total["cgst_amt"] + cgst_amt[0] %}
+		{% set temp_sgst_amt = grand_total["sgst_amt"] + sgst_amt[0] %}
+		{% set temp_igst_amt = grand_total["igst_amt"] + igst_amt[0] %}
+		{% set temp_qty = grand_total["qty"] + row.qty %}
+		{% set temp_amount = grand_total["amount"] + row.amount %}
+		{% set check = grand_total.update({"qty": temp_qty, "amount": temp_amount, "cgst_amt":temp_cgst_amt, "sgst_amt":temp_sgst_amt, "igst_amt":temp_igst_amt}) %}
+		
+			<td style="width: 5%; font-size : 12px;">{{ row.idx }}</td>
+			<td style="width: 15%; font-size : 12px;">
+				{% if row.item_code != row.item_name -%}
+				<b>{{ row.item_code }}</b><br>
+				{%- endif %}
+                                {{ row.item_name }}
+			</td>
+            <td style="width: 30%; font-size : 12px;">{{ row.description }}</td>
+			<td style="width: 5%; font-size : 12px;">{{ row.gst_hsn_code or "" }}</td>
+			<td style="width: 5%; text-align: left; font-size : 12px;">{{ row.uom or row.stock_uom }}&nbsp &nbsp &nbsp &nbsp &nbsp &nbsp {{ row.qty }}</td>
+			<td style="width: 10%; text-align: right; font-size : 12px;">{{
+				row.get_formatted("rate", doc) }}</td>
+			<td style="width: 10%; text-align: right; font-size : 12px;">{{
+				row.get_formatted("amount", doc) }} </td>
+			
+			
+</tr>
+{%- endfor -%}
+<tr>
+
+			<td style="width: 5%; font-size : 12px;"></td>
+			<td style="width: 15%; font-size : 12px;"><b>
+				Total
+			</b></td>
+            <td style="width: 30%; font-size : 12px;"></td>
+			<td style="width: 5%; font-size : 12px;"></td>
+			<td style="width: 5%; text-align: left; font-size : 12px;"><b> {{ grand_total["qty"] }} </b></td>
+			<td style="width: 5%; text-align: right; font-size : 12px;"></td>
+			<td style="width: 10%; text-align: right; font-size : 12px;"><b>{{
+				" {:,.2f}".format(grand_total["amount"]) }}</b></td>
+			
+			
+</tr>
+</tbody>
+</table>
+
+<table class="noborder">
+	<tbody>
+            	<tr>
+                   <td class="text-right" width = "600">
+				<b>{{ ("Total") }}</b>
+		   </td>
+                    <td class="text-right" width= "200">
+				{{ doc.get_formatted("total") }}
+		    </td>
+		</tr>
+             {%- if doc.discount_amount -%}
+		<tr>
+			<td class="text-right" width = "600">
+				{{ ("Discount") }}
+			</td>
+			<td class="text-right" width = "200">
+				{{ doc.get_formatted("discount_amount") }}
+			</td>
+		</tr>
+		{%- endif -%}
+               <tr>
+                   <td class="text-right" width = "600">
+				<b>{{ ("Net Total") }}</b>
+		   </td>
+                    <td class="text-right" width= "200">
+				{{ doc.get_formatted("net_total") }}
+		    </td>
+		</tr>
+		<tr>
+           	{%- for row in doc.taxes -%}
+	  	  {%- if not row.included_in_print_rate -%}
+		  <tr>
+			<td class="text-right" width = "600">
+				<b>{{ row.description }}</b>
+			</td>
+			<td class="text-right" width= "200">
+				{{ row.get_formatted("tax_amount", doc) }}
+			</td>
+		 </tr>
+                
+		{%- endif -%}
+		{%- endfor -%}
+		
+			<td class="text-right" width = "600">
+				<b>{{ ("Grand Total") }}</b>
+		        </td>
+			<td class="text-right" width = "200">
+				{{ doc.get_formatted("grand_total") }}
+			</td>
+		</tr>
+                <tr>
+			<td class="text-right" width = "600">
+				<b>{{ ("Rounded Total") }}</b>
+		        </td>
+			<td class="text-right" width = "200">
+				{{ doc.get_formatted("rounded_total") }}
+			</td>
+		</tr>
+                  
+                <tr>
+			<td class="text-right" width = "1000">
+				<b>{{ ("In Words :") }}</b>
+                        	{{ doc.in_words }} <br>
+                        </td>
+                 </tr>
+		   
+		</font> 
+		</td>
+		</tr>                    
+ </tbody>
+</table>
+<br>
+
+<div>{{doc.terms}}</div>
+<br>
+<br>
+<p class="text-left" style="font-size: 12px;"><b>This is computer generated document. No signature is required.</b></p><br>
+
