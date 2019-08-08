@@ -32,20 +32,6 @@
      <td style="width: 50%; font-size: 12px;"><b>Customer Address : </b> {{ doc.address_display}}</td>
     <td style="width: 50%; font-size: 12px;"><b>Kind Attention : </b>{{ doc.contact_display }} </td>
 </tr>
-<!--<tr>
-     <td style="width: 50%;"><b>SO No : </b> {{ doc.customer_sales_order }}</td>
-    <td style="width: 50%;"><b> SO Date : </b>{{frappe.utils.formatdate(doc.customer_sales_order_date,"dd-MM-yyyy")}} </td>
-</tr>
-
-<tr>
-    <td style="width: 50%;"><b>Place of Supply :</b> {{doc.place_of_supply or ""}}</td>
-    <td style="width: 50%;"><b>Payment Terms: </b>{{doc.payment_terms_template or "" }}</td>
-</tr>
-<tr>
-    <td style="width: 50%;"><b> Customer Name : </b> {{doc.customer_name}} </br> <b>Billing Address :</b>{{doc.address_display}}</br> <b> End User: </b> {{doc.end_user_name
- or "" }}</br><b> Customer GSTIN: </b> {{doc.customer_gstin or "URD" }} </td> 
-    <td style="width: 50%;"><b> Customer Name : </b> {{doc.customer_name}} </br><b>Shipping Address : </b>{{doc.shipping_address or ""}}</td>
-</tr>-->
 </table>
 <br>
 </br>
