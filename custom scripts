@@ -1,0 +1,496 @@
+##Interaction
+
+cur_frm.fields_dict['opportunity'].get_query = function(doc, cdt, cdn) {
+	return {
+		filters:{'customer': doc.customer}
+	}
+}
+
+cur_frm.fields_dict['quotation'].get_query = function(doc, cdt, cdn) {
+	return {
+		filters:{'customer': doc.customer}
+	}
+}
+
+cur_frm.fields_dict['sales_order'].get_query = function(doc, cdt, cdn) {
+	return {
+		filters:{'customer': doc.customer}
+	}
+}
+
+cur_frm.fields_dict['sales_invoice'].get_query = function(doc, cdt, cdn) {
+	return {
+		filters:{'customer': doc.customer}
+	}
+}
+
+cur_frm.fields_dict['address'].get_query = function(doc, cdt, cdn) {
+	return {
+		query: 'frappe.contacts.doctype.address.address.address_query',
+		filters: {
+			link_doctype: 'Customer',
+			link_name: doc.customer
+			}
+		};
+}
+
+cur_frm.fields_dict['contact'].get_query = function(doc, cdt, cdn) {
+	return {
+		query: 'frappe.contacts.doctype.contact.contact.contact_query',
+		filters: {
+			link_doctype: 'Customer',
+			link_name: doc.customer
+			}
+		};
+}
+
+
+  ##Quotation
+  
+  cur_frm.add_fetch('quotation','value','value');
+cur_frm.add_fetch('quotation','closing_date','closing_date');
+cur_frm.add_fetch('quotation','opportunity_purpose','opportunity_purpose');
+cur_frm.add_fetch('quotation','buying_status','buying_status');
+cur_frm.add_fetch('quotation','stage','stage');
+cur_frm.add_fetch('quotation','competition_status','competition_status');
+cur_frm.add_fetch('quotation','support_needed','support_needed');
+
+frappe.ui.form.on("Quotation", "refresh", function(frm) {
+              cur_frm.add_custom_button(__("Make Communication"), function() {
+			frappe.route_options = {
+				reference_doctype: "Quotation",
+                        	reference_name: cur_frm.doc.name,
+                                recipients: cur_frm.doc.contact_email,
+                                phone_no: cur_frm.doc.contact_mobile
+			}
+			frappe.set_route("List", "Communication");
+		}, __("Make"));
+               cur_frm.add_custom_button(__("Make ToDo"), function() {
+			
+			frappe.set_route("List", "ToDo");
+		}, __("Make"));
+		cur_frm.page.set_inner_btn_group_as_primary(__("Make"));
+       
+});
+
+frappe.ui.form.on("Quotation", "refresh", function(frm) {
+        cur_frm.add_custom_button(__('Make Interactions'), cur_frm.cscript['Make Interactions'], __("Make"));
+        cur_frm.add_custom_button(__('Proposal Stage'), cur_frm.cscript['Make Proposal Stage'],
+                __("Make"));
+
+	             
+});
+
+cur_frm.cscript['Make Interactions'] = function(cdt, cdn) {
+    frappe.model.open_mapped_doc({
+        method: "nhance.api.make_interactions_quot",
+        frm: cur_frm,
+	
+    })
+}
+
+cur_frm.cscript['Make Proposal Stage'] = function() {
+    frappe.model.open_mapped_doc({
+        method: "nhance.api.make_proposal_stage_q",
+        frm: cur_frm
+    })
+}
+
+
+frappe.ui.form.on("Quotation", "refresh", function(frm) {
+              cur_frm.add_custom_button(__("View Proposal Stages"), function() {
+		  if (frm.doc.opportunity) {
+			var ref_name = frm.doc.opportunity;
+			}
+		  else
+			{
+			var ref_name = frm.doc.name;
+			}
+		
+			frappe.route_options = {
+			 reference_name: ref_name
+			}
+			frappe.set_route("List", "Proposal Stage");
+		}, __("View"));
+
+              cur_frm.add_custom_button(__("View Interactions"), function() {
+		  if (frm.doc.opportunity) {
+			var ref_name = frm.doc.opportunity;
+			}
+		  else
+			{
+			var ref_name = frm.doc.name;
+			}
+		
+			frappe.route_options = {
+			 quotation: ref_name
+			}
+			frappe.set_route("List", "Interactions");
+		}, __("View"));
+
+});
+
+##Appraisal
+
+frappe.ui.form.on("Appraisal Goal", {
+	sup: function(frm,cdt, cdn){
+		calculate_score(frm, cdt, cdn);
+	},
+	hod: function(frm, cdt, cdn){
+		calculate_score(frm, cdt, cdn);
+	}
+});
+var calculate_score = function(frm, cdt, cdn) {
+	var d = locals[cdt][cdn];
+	frappe.model.set_value(cdt, cdn, "scoring", flt(d.sup + d.hod)/2);
+}
+
+frappe.ui.form.on("Appraisal Goal", {
+  per_weightage: function(frm,cdt, cdn){
+      calculate_scoring(frm, cdt, cdn);
+  },
+  scoring: function(frm, cdt, cdn){
+      calculate_scoring(frm, cdt, cdn);
+  }
+});
+var calculate_scoring = function(frm, cdt, cdn) {
+  var d = locals[cdt][cdn];
+  if(d.scoring){
+   if (flt(d.scoring) > 5) {
+			frappe.msgprint(__("Scoring must be less than or equal to 5"));
+			d.scoring = 0;
+			refresh_field('scoring', d.name, 'goals');
+		}
+         frappe.model.set_value(cdt, cdn, "earned_score", flt(d.scoring*d.per_weightage)/100);
+         refresh_field('earned_score', d.name, 'goals');
+       }
+   else{
+                d.earned_score = 0;
+		refresh_field('earned_score', d.name, 'goals');
+	}
+
+}
+
+frappe.ui.form.on("Appraisal Goal", {
+	earned_score: function(frm) {
+		var val = cur_frm.doc.goals || [];
+		var total = 0;
+		//var total_avg = 0;
+		for(var i = 0; i<val.length; i++){
+    			total += val[i].earned_score
+		}
+		cur_frm.set_value('total_scoring', total);
+}
+})
+
+frappe.ui.form.on("Appraisal Goal", {
+      emp: function(frm, cdt, cdn) {
+        var d = locals[cdt][cdn];
+            if (flt(d.emp) > 5) {
+			frappe.msgprint(__("Sup must be less than or equal to 5"));
+			d.emp = 0;
+			refresh_field('emp', d.name, 'goals');
+		}
+     }
+ });
+
+frappe.ui.form.on("Appraisal Goal", {
+      sup: function(frm, cdt, cdn) {
+        var d = locals[cdt][cdn];
+            if (flt(d.sup) > 5) {
+			frappe.msgprint(__("Sup must be less than or equal to 5"));
+			d.sup = 0;
+			refresh_field('sup', d.name, 'goals');
+		}
+     }
+ });
+
+ frappe.ui.form.on("Appraisal Goal", {
+       hod: function(frm, cdt, cdn) {
+         var d = locals[cdt][cdn];
+             if (flt(d.hod) > 5) {
+ 			frappe.msgprint(__("Hod must be less than or equal to 5"));
+ 			d.hod = 0;
+ 			refresh_field('hod', d.name, 'goals');
+ 		}
+      }
+  });
+
+frappe.ui.form.on("Appraisal Template Goal4", {
+  sup: function(frm,cdt, cdn){
+      calculate_avg(frm, cdt, cdn);
+  },
+  hod: function(frm, cdt, cdn){
+      calculate_avg(frm, cdt, cdn);
+  }
+});
+var calculate_avg = function(frm, cdt, cdn) {
+  var d = locals[cdt][cdn];
+  frappe.model.set_value(cdt, cdn, "avg", flt(d.sup + d.hod)/2);
+     
+  //var total = 0;
+  //frm.doc.appraisal_potential.forEach(function(d) { total += d.average; });
+  //frm.set_value('average', total);
+   var val = cur_frm.doc.appraisal_potential || [];
+		var total = 0;
+		//var total_avg = 0;
+		for(var i = 0; i<val.length; i++){
+    			total += val[i].avg
+    		}
+		if (total_avg != 0)
+		{ 
+		var total_avg = total/val.length;
+		}
+		cur_frm.set_value('average', total_avg);   
+
+}
+frappe.ui.form.on("Appraisal Template Goal4", {
+      sup: function(frm, cdt, cdn) {
+        var d = locals[cdt][cdn];
+            if (flt(d.sup) > 5) {
+			frappe.msgprint(__("Sup must be less than or equal to 5"));
+			d.sup = 0;
+			refresh_field('sup', d.name, 'appraisal_potential');
+		}
+     }
+ });
+
+ frappe.ui.form.on("Appraisal Template Goal4", {
+       hod: function(frm, cdt, cdn) {
+         var d = locals[cdt][cdn];
+             if (flt(d.hod) > 5) {
+ 			frappe.msgprint(__("HOD must be less than or equal to 5"));
+ 			d.hod = 0;
+ 			refresh_field('hod', d.name, 'appraisal_potential');
+ 		}
+      }
+  });
+
+frappe.ui.form.on("Appraisal Template Goal4", {
+       self: function(frm, cdt, cdn) {
+         var d = locals[cdt][cdn];
+             if (flt(d.self) > 5) {
+ 			frappe.msgprint(__("self must be less than or equal to 5"));
+ 			d.self = 0;
+ 			refresh_field('self', d.name, 'appraisal_potential');
+ 		}
+      }
+  });
+
+frappe.ui.form.on("Appraisal Template Goal4", {
+       avg: function(frm, cdt, cdn) {
+         var d = locals[cdt][cdn];
+             if (flt(d.avg) > 5) {
+ 			frappe.msgprint(__("Average Earned Points must be less than or equal to 5"));
+ 			d.avg = 0;
+ 			refresh_field('avg', d.name, 'appraisal_potential');
+ 		}
+      }
+  });
+
+frappe.ui.form.on("Appraisal Template Goal5", {
+      self: function(frm, cdt, cdn){
+      var val = cur_frm.doc.kra || [];
+      var total = 0;
+     for(var i = 0; i<val.length; i++){
+             total =  total + val[i].self
+         }
+     if (total != 100)
+     {
+      frappe.msgprint(__("Sum of points for all weightage should be 100"));
+     }
+     }
+});
+
+frappe.ui.form.on("Appraisal", "average", function(frm) {
+  frm.set_value("scores", flt(frm.doc.average) + flt(frm.doc.total_scoring));
+})
+frappe.ui.form.on("Appraisal", "total_scoring", function(frm) {
+  frm.set_value("scores", flt(frm.doc.average) + flt(frm.doc.total_scoring));
+})
+
+cur_frm.get_field("goals").grid.cannot_add_rows = true;
+cur_frm.get_field("goals").grid.only_sortable();
+
+##opportunity Item
+
+frappe.ui.form.on("Opportunity Item", {
+	item_code: function(frm, cdt, cdn) {
+		row = locals[cdt][cdn];
+		frappe.call({
+			method: "frappe.client.get",
+			args: {
+				doctype: "Item Price",
+				filters: {
+					"item_code": row.item_code,
+					"price_list": "Standard Selling"
+				}
+			},
+			callback: function (data) {
+				frappe.model.set_value(cdt, cdn, "rate", data.message.price_list_rate);
+				frm.events.calculate_amount(frm, row)
+			}
+		})
+	},
+
+	qty: function(frm, cdt, cdn) {
+		row = locals[cdt][cdn]
+		frm.events.calculate_amount(frm, row)
+	},
+
+	rate: function(frm, cdt, cdn) {
+		row = locals[cdt][cdn]
+		frm.events.calculate_amount(frm, row)
+	},
+
+	calculate_amount: function(frm, row){
+		if (row.qty && row.rate) {
+			var row_amt = flt(row.qty * row.rate);
+			frappe.model.set_value(row.doctype, row.name, "amount", row_amt)
+		}
+	}
+});
+
+##opportunity
+
+frappe.ui.form.on("Opportunity", "refresh", function(frm) {
+        cur_frm.add_custom_button(__('Make Communication'), cur_frm.cscript['Make Communication'], __("Make"));
+	             
+});
+frappe.ui.form.on("Opportunity", "refresh", function(frm) {
+        cur_frm.add_custom_button(__('Make ToDo'), cur_frm.cscript['Make ToDo'], __("Make"));
+	             
+});
+frappe.ui.form.on("Opportunity", "refresh", function(frm) {
+		console.log("Inside 1");
+              cur_frm.add_custom_button(__("View Proposal Stages"), function() {
+			frappe.route_options = {
+			 reference_name: cur_frm.doc.name
+			}
+			frappe.set_route("List", "Proposal Stage");
+		}, __("View"));
+              cur_frm.add_custom_button(__("View Interactions"), function() {
+			frappe.route_options = {
+			 reference_name: cur_frm.doc.name
+			}
+			frappe.set_route("List", "Interactions");
+		}, __("View"));
+
+});
+cur_frm.cscript['Make Communication'] = function() {
+		console.log("Inside 2");
+            frappe.route_options = {
+                reference_doctype: "Opportunity",
+                            reference_name: cur_frm.doc.name,
+                                email_account: cur_frm.email,
+                                phone_no: cur_frm.contact_mobile
+            }
+            frappe.set_route("List", "Communication");
+}
+frappe.ui.form.on("Opportunity", "refresh", function(frm) {
+		console.log("Inside 3");
+        cur_frm.add_custom_button(__('Make Interactions'), cur_frm.cscript['Make Interactions'], __("Make"));
+	             
+});
+cur_frm.cscript['Make Interactions'] = function() {
+		console.log("Inside 4");
+    frappe.model.open_mapped_doc({
+        method: "nhance.api.make_interactions",
+        frm: cur_frm
+
+})
+}
+frappe.ui.form.on("Opportunity", "refresh", function(frm, cdt, cdn) {
+		console.log("Inside 5");
+              cur_frm.add_custom_button(__('Proposal Stage'), cur_frm.cscript['Make Proposal Stage'],
+                __("Make"));
+        });
+    
+cur_frm.cscript['Make Proposal Stage'] = function() {
+		console.log("Inside 6");
+    frappe.model.open_mapped_doc({
+        method: "nhance.api.make_proposal_stage",
+        frm: cur_frm
+    })
+}
+frappe.ui.form.on("Opportunity", "before_save", function(frm, cdt, cdn) {
+         		console.log("Inside 7");
+          frappe.call({
+                method: "nhance.api.set_proposal_stage_values",
+                args: {
+                   "opportunity": frm.doc.name
+               },
+                   callback:function(r){
+                           
+                           if(r.message) {
+				
+                             frappe.model.set_value(cdt, cdn, "amount", flt(r.message[0][0]));
+			     refresh_field("amount");
+                             frappe.model.set_value(cdt, cdn, "close_date", r.message[0][1]);
+                             refresh_field("close_date");
+			     frappe.model.set_value(cdt, cdn, "stages", r.message[0][2]);
+                             refresh_field("stages");
+		             frappe.model.set_value(cdt, cdn, "opp_purpose", r.message[0][3]);
+                             refresh_field("opp_purpose");
+			     frappe.model.set_value(cdt, cdn, "buy_status", r.message[0][4]);
+                             refresh_field("buy_status");
+			     frappe.model.set_value(cdt, cdn, "supp_needed", r.message[0][5]);
+                             refresh_field("supp_needed");
+			     frappe.model.set_value(cdt, cdn, "compete_status", r.message[0][6]);
+                             refresh_field("compete_status");
+			    }
+                         }
+		     });
+});
+
+cur_frm.cscript['Make ToDo'] = function() {
+		console.log("Inside 8");
+            frappe.route_options = {
+                reference_doctype: "Opportunity",
+                            reference_type: cur_frm.doctype,
+                            reference_name: cur_frm.doc.name
+            }
+            frappe.set_route("List", "ToDo");
+}
+
+//calculate
+frappe.ui.form.on("Opportunity Item", {
+	qty: function(frm,cdt, cdn){
+		calculate_total(frm, cdt, cdn);
+	},
+	rate: function(frm, cdt, cdn){
+		calculate_total(frm, cdt, cdn);
+	}
+});
+var calculate_total = function(frm, cdt, cdn) {
+	var d = locals[cdt][cdn];
+	frappe.model.set_value(cdt, cdn, "amount", flt(d.qty * d.rate));
+}
+
+//calculation of total
+frappe.ui.form.on('Opportunity', 'validate', function(frm){
+  set_total_amount(frm);
+})
+
+frappe.ui.form.on('Opportunity Item', 'amount', function(frm, cdt, cdn){
+  set_total_amount(frm);
+})
+
+var set_total_amount = function(frm) {
+  var total_amount = 0.0;
+  $.each(frm.doc.items, function(i, row) {
+    total_amount += flt(row.amount);
+  })
+  console.log(total_amount);
+  frm.set_value('total_amount', total_amount);
+  frm.refresh();
+}
+
+frappe.ui.form.on("Opportunity", {
+opportunity_by: function(frm) {
+if(frm.doc.opportunity_by == "Sales Team")
+ {
+frm.set_value("agent_name","Sales Team");
+}
+}
+})
