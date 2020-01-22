@@ -494,3 +494,42 @@ frm.set_value("agent_name","Sales Team");
 }
 }
 })
+
+
+//query reports
+SELECT
+  t.name as "Opportunity:Link/Opportunity:200",
+  t.customer as "Customer:Link/Customer:100",
+  t.opportunity_name as "Opportunity Name:Link/Opportunity:100",
+  t.opportunity_as "Opportunity As:80",
+  t.opportunity_by as "Opportunity by:50",
+  t.agent_name as "Agent Name",
+  B.item_name as "Item Name:100",
+  B.item_group as "Item Group:100",
+  B.item_code as "Item Code:100",
+  B.amount as "Amount:Amount:100",
+  t.opportunity_ranking as "Opportunity Ranking:100",
+  t.status as "Opportunity Status:100",
+  t.closing_date as "Closing Date:100",
+  t.city as "City:100",
+  t.territory as "Territory:100",
+  t.territory_manager as "Territory Manager:100",
+  t.owner as "created By:100",
+  t.creation as "creation Date:100",
+  t.modified_by as "Modified By:100",
+  t.modified as " Modified Date:100",
+  t.territory_manager as "Owner:100",
+   tm.*
+FROM `tabOpportunity` t
+LEFT JOIN (
+	SELECT  t1.opportunity, t1.date AS INTDATE, t1.complete_description AS INTCD, t1.name AS INTNAME, t1.type_of_interaction AS INTTYPE, t1.interaction_status as INTSTS, t1.username as INTUSER , t1.user as INTUSERID
+    FROM tabInteractions t1
+    INNER JOIN (
+        SELECT
+            name,opportunity,
+	    max(creation)as maxdate
+        FROM tabInteractions
+        GROUP BY opportunity
+        ORDER BY maxdate) t2 ON t1.opportunity=t2.opportunity AND t1.creation=t2.maxdate
+) tm on t.name = tm.opportunity
+INNER JOIN `tabOpportunity Item` B ON t.name=B.parent
